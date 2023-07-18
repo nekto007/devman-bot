@@ -13,7 +13,7 @@ This telegram bot project notifies you every time you get a code review on [Dvmn
 1. Clone project
 ```bash
 git clone https://github.com/nekto007/devman-bot.git
-cd dvmn_bot
+cd devman-bot
 ```
 
 2. Create virtual environment
