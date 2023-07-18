@@ -24,11 +24,7 @@ class TelegramLogsHandler(logging.Handler):
 def get_code_review(token: str, timestamp: float, timeout: int = 120):
     headers = {'Authorization': f'Token {token}'}
     params = {'timestamp': timestamp}
-    print(timestamp)
     response = requests.get(url=DVMN_LONGPOLLING_URL, headers=headers, data=params, timeout=timeout)
-    print(response.status_code)
-    print(response.request)
-    print(response.json())
     return response.json()
 
 
@@ -43,15 +39,13 @@ def review_notification(info_review: dict):
 
 
 def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger):
-    # timestamp = time.time()
-    timestamp = 1689366779.004384
+    timestamp = time.time()
     error_message = (
         f'An error has occured. Will try again in {error_timeout} seconds...'
     )
     while True:
         try:
             review = get_code_review(dvmn_token, timestamp, error_timeout)
-            print(review)
         except (
                 requests.exceptions.ReadTimeout,
                 requests.exceptions.ConnectTimeout
@@ -59,9 +53,9 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
             logger.error(error_message)
             time.sleep(error_timeout)
             continue
+
         if review['status'] == 'timeout':
             timestamp = review['timestamp_to_request']
-            print(timestamp)
         elif review['status'] == 'found':
             timestamp = review['last_attempt_timestamp']
             notification = review_notification(review["new_attempts"][0])
@@ -74,7 +68,9 @@ if __name__ == '__main__':
     error_timeout = env.int('ERROR_TIMEOUT')
     telegram_token = env.str('TELEGRAM_TOKEN')
     user_chat_id = env.str('TELEGRAM_CHAT_ID')
+
     logging.basicConfig(level=logging.INFO)
+
     logger = logging.getLogger('Logger')
     logger.addHandler(
         TelegramLogsHandler(tg_token=telegram_token, chat_id=user_chat_id)
