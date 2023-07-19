@@ -4,10 +4,21 @@ import time
 import requests
 import telegram
 from environs import Env
+from requests import HTTPError
 
-env = Env()
-env.read_env()
 DVMN_LONGPOLLING_URL = 'https://dvmn.org/api/long_polling/'
+
+logger = logging.getLogger('Logger')
+
+
+def check_for_redirect(response):
+    if response.history:
+        raise HTTPError
+
+
+def send_notification(notification):
+    bot = telegram.Bot(token=telegram_token)
+    bot.send_message(chat_id=user_chat_id, text=notification)
 
 
 class TelegramLogsHandler(logging.Handler):
@@ -25,10 +36,12 @@ def get_code_review(token: str, timestamp: float, timeout: int = 120):
     headers = {'Authorization': f'Token {token}'}
     params = {'timestamp': timestamp}
     response = requests.get(url=DVMN_LONGPOLLING_URL, headers=headers, data=params, timeout=timeout)
+    response.raise_for_status()
+    check_for_redirect(response)
     return response.json()
 
 
-def review_notification(info_review: dict):
+def create_review_notification(info_review: dict):
     lesson_reviewed = f'Преподователь проверил урок {info_review["lesson_title"]}'
     lesson_url = info_review['lesson_url']
     if info_review['is_negative']:
@@ -48,7 +61,8 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
             review = get_code_review(dvmn_token, timestamp, error_timeout)
         except (
                 requests.exceptions.ReadTimeout,
-                requests.exceptions.ConnectTimeout
+                requests.exceptions.ConnectTimeout,
+                requests.exceptions.RequestException
         ):
             logger.error(error_message)
             time.sleep(error_timeout)
@@ -58,22 +72,18 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
             timestamp = review['timestamp_to_request']
         elif review['status'] == 'found':
             timestamp = review['last_attempt_timestamp']
-            notification = review_notification(review["new_attempts"][0])
-            logger.info(notification)
+            notification = create_review_notification(review["new_attempts"][0])
+            send_notification(notification)
 
 
-#
 if __name__ == '__main__':
+    env = Env()
+    env.read_env()
     dvmn_token = env.str('DVMN_TOKEN')
     error_timeout = env.int('ERROR_TIMEOUT')
     telegram_token = env.str('TELEGRAM_TOKEN')
     user_chat_id = env.str('TELEGRAM_CHAT_ID')
 
     logging.basicConfig(level=logging.INFO)
-
-    logger = logging.getLogger('Logger')
-    logger.addHandler(
-        TelegramLogsHandler(tg_token=telegram_token, chat_id=user_chat_id)
-    )
 
     run_long_polling(dvmn_token, error_timeout, logger=logger)
