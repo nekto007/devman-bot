@@ -11,16 +11,6 @@ DVMN_LONGPOLLING_URL = 'https://dvmn.org/api/long_polling/'
 logger = logging.getLogger('Logger')
 
 
-def check_for_redirect(response):
-    if response.history:
-        raise HTTPError
-
-
-def send_notification(notification):
-    bot = telegram.Bot(token=telegram_token)
-    bot.send_message(chat_id=user_chat_id, text=notification)
-
-
 class TelegramLogsHandler(logging.Handler):
     def __init__(self, tg_token: str, chat_id: int):
         super().__init__()
@@ -37,7 +27,6 @@ def get_code_review(token: str, timestamp: float, timeout: int = 120):
     params = {'timestamp': timestamp}
     response = requests.get(url=DVMN_LONGPOLLING_URL, headers=headers, data=params, timeout=timeout)
     response.raise_for_status()
-    check_for_redirect(response)
     return response.json()
 
 
@@ -58,9 +47,9 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
     )
     while True:
         try:
-            review = get_code_review(dvmn_token, timestamp, error_timeout)
+            review = get_code_review(dvmn_token, timestamp)
         except (
-                requests.exceptions.ReadTimeout,
+                requests.exceptions.Timeout,
                 requests.exceptions.ConnectTimeout,
                 requests.exceptions.RequestException
         ):
@@ -73,7 +62,8 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
         elif review['status'] == 'found':
             timestamp = review['last_attempt_timestamp']
             notification = create_review_notification(review["new_attempts"][0])
-            send_notification(notification)
+            bot = telegram.Bot(token=telegram_token)
+            bot.send_message(chat_id=user_chat_id, text=notification)
 
 
 if __name__ == '__main__':
