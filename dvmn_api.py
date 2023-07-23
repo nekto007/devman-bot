@@ -49,7 +49,6 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
         try:
             review = get_code_review(dvmn_token, timestamp, error_timeout)
         except requests.exceptions.ReadTimeout:
-            time.sleep(error_timeout)
             continue
         except (
                 requests.exceptions.HTTPError,
