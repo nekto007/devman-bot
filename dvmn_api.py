@@ -4,18 +4,20 @@ import time
 import requests
 import telegram
 from environs import Env
-from requests import HTTPError
 
 DVMN_LONGPOLLING_URL = 'https://dvmn.org/api/long_polling/'
 
 logger = logging.getLogger('Logger')
+logging.basicConfig(format="%(process)d %(levelname)s %(message)s")
+
+start_bot = 'Бот запущен'
 
 
 class TelegramLogsHandler(logging.Handler):
     def __init__(self, tg_token: str, chat_id: int):
         super().__init__()
         self.chat_id = chat_id
-        self.tg_bot = telegram.Bot(token=tg_token)
+        self.tg_bot = bot
 
     def emit(self, record):
         log_entry = self.format(record)
@@ -47,24 +49,26 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
     )
     while True:
         try:
-            review = get_code_review(dvmn_token, timestamp, error_timeout)
-        except requests.exceptions.ReadTimeout:
-            continue
-        except (
-                requests.exceptions.HTTPError,
-                requests.RequestException
-        ):
-            logger.error(error_message)
-            time.sleep(error_timeout)
-            continue
+            try:
+                review = get_code_review(dvmn_token, timestamp, error_timeout)
+            except requests.exceptions.ReadTimeout:
+                continue
+            except (
+                    requests.exceptions.HTTPError,
+                    requests.RequestException
+            ):
+                logger.error(error_message)
+                time.sleep(error_timeout)
+                continue
 
-        if review['status'] == 'timeout':
-            timestamp = review['timestamp_to_request']
-        elif review['status'] == 'found':
-            timestamp = review['last_attempt_timestamp']
-            notification = create_review_notification(review["new_attempts"][0])
-            bot = telegram.Bot(token=telegram_token)
-            bot.send_message(chat_id=user_chat_id, text=notification)
+            if review['status'] == 'timeout':
+                timestamp = review['timestamp_to_request']
+            elif review['status'] == 'found':
+                timestamp = review['last_attempt_timestamp']
+                notification = create_review_notification(review["new_attempts"][0])
+                bot.send_message(chat_id=user_chat_id, text=notification)
+        except:
+            logging.exception("Бот упал с ошибкой:")
 
 
 if __name__ == '__main__':
@@ -74,7 +78,11 @@ if __name__ == '__main__':
     error_timeout = env.int('ERROR_TIMEOUT')
     telegram_token = env.str('TELEGRAM_TOKEN')
     user_chat_id = env.str('TELEGRAM_CHAT_ID')
-
+    bot = telegram.Bot(token=telegram_token)
     logging.basicConfig(level=logging.INFO)
-
+    logger.setLevel(logging.INFO)
+    logger.addHandler(
+        TelegramLogsHandler(bot, chat_id=user_chat_id)
+    )
+    logger.info(start_bot)
     run_long_polling(dvmn_token, error_timeout, logger=logger)
