@@ -68,7 +68,7 @@ def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger
                 notification = create_review_notification(review["new_attempts"][0])
                 bot.send_message(chat_id=user_chat_id, text=notification)
         except:
-            logging.exception("Бот упал с ошибкой:")
+            logger.exception("Бот упал с ошибкой:")
 
 
 if __name__ == '__main__':
