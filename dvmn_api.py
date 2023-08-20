@@ -8,7 +8,7 @@ from environs import Env
 DVMN_LONGPOLLING_URL = 'https://dvmn.org/api/long_polling/'
 
 logger = logging.getLogger('Logger')
-logging.basicConfig(format="%(process)d %(levelname)s %(message)s")
+
 
 start_bot = 'Бот запущен'
 
@@ -42,7 +42,7 @@ def create_review_notification(info_review: dict):
     return f'{lesson_reviewed}\n{lesson_url}\n{review_result}'
 
 
-def run_long_polling(dvmn_token: str, error_timeout: int, logger: logging.Logger):
+def run_long_polling(dvmn_token: str, error_timeout: int, bot, logger: logging.Logger):
     timestamp = time.time()
     error_message = (
         f'An error has occured. Will try again in {error_timeout} seconds...'
@@ -79,10 +79,11 @@ if __name__ == '__main__':
     telegram_token = env.str('TELEGRAM_TOKEN')
     user_chat_id = env.str('TELEGRAM_CHAT_ID')
     bot = telegram.Bot(token=telegram_token)
+    logging.basicConfig(format="%(process)d %(levelname)s %(message)s")
     logging.basicConfig(level=logging.INFO)
     logger.setLevel(logging.INFO)
     logger.addHandler(
         TelegramLogsHandler(bot, chat_id=user_chat_id)
     )
     logger.info(start_bot)
-    run_long_polling(dvmn_token, error_timeout, logger=logger)
+    run_long_polling(dvmn_token, error_timeout, bot, logger=logger)
