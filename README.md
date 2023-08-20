@@ -33,3 +33,21 @@ pip install -r requirements.txt
 ```bash
 python dvmn_api.py
 ```
+## Run with `Docker`
+1. Clone project
+```bash
+git clone https://github.com/nekto007/devman-bot
+cd devman-bot
+```
+
+2. Build `Docker` image
+```bash
+docker build --tag dvmn-bot .
+```
+
+3. Rename `.env.example` to `.env` and place your secrets in it.  
+
+4. Run `Docker` container
+```bash
+docker run -d --name dvmn-bot --env-file ./.env --restart always dvmn-bot
+```
